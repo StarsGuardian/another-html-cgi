@@ -1,0 +1,383 @@
+#! /usr/bin/python3
+
+# Import modules for CGI handling
+import cgi, cgitb
+import os
+import json
+import MySQLdb
+import passwords
+cgitb.enable()
+
+form = cgi.FieldStorage()
+
+conn = MySQLdb.connect(host = passwords.SQL_HOST,
+user = passwords.SQL_USER,
+passwd = passwords.SQL_PASSWD,
+db = "pets")
+def list_pets():
+    print("Content-type: text/html")
+    print("Status: 200 OK")
+    print()
+    if "owner" in form:
+        owner = form["owner"].value
+    else:
+        owner = "false"
+    print("<body><center><b><font size = '+3'>Twerk Prince Pets Store</font></b></center>")
+    print("<br>")
+    if (owner == "false"):
+        print("This table reports only the pets, their owners are not included")
+        print("<br>")
+        print("Looking for information of owners? Click <a href = '/cgi-bin/pets/list_pets?owner={}'> Here</a>".format("true"))
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM list_pets;")
+        allpets = cursor.fetchall()
+        cursor.close()
+        print("<table style = 'width:15%' cellpadding = '10' border = '1'>")
+        print("<col width = '50'>")
+        print("<col width = '50'>")
+        print("<col width = '50'>")
+        print("<tr>")
+        print("<th>ID</th>")
+        print("<th>Species</th>")
+        print("<th>Name</th>")
+        print("</tr>")
+        for line in allpets:
+            print("<tr>")
+            print("<td>{}</td>".format(line[0]))
+            print("<td>{}</td>".format(line[1]))
+            print("<td>{}</td>".format(line[2]))
+            print("</tr>")
+        print("</table>")
+    else:
+        print("This table reports pets and their owners") 
+        print("<br>")
+        print("Want to ignore owners' information? Click <a href = '/cgi-bin/pets/list_pets?owner={}'> Here</a>".format("false"))
+        print("<br>")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pets_owners;")
+        pets_owners = cursor.fetchall()
+        cursor.close()
+        print("<table style = 'width:15%' cellpadding = '10' border = '1'>")
+        print("<col width = '50'>")
+        print("<col width = '50'>")
+        print("<col width = '50'>")
+        print("<col width = '50'>")
+        print("<col width = '50'>")
+        print("<col width = '50'>")
+        print("<tr>")
+        print("<th>ID</th>")
+        print("<th>Species</th>")
+        print("<th>Animal Name</th>")
+        print("<th>Person: Last Name</th>")
+        print("<th>Person: First Name</th>")
+        print("</tr>")
+        for line in pets_owners:
+            print("<tr>")
+            print("<td>{}</td>".format(line[0]))
+            print("<td>{}</td>".format(line[1]))
+            print("<td>{}</td>".format(line[2]))
+            print("<td>{}</td>".format(line[3]))
+            print("<td>{}</td>".format(line[4]))
+            print("</tr>")
+    print("</table>")
+
+def list_people():
+    print("Content-type: text/html")
+    print("Status: 200 OK")
+    print()
+    print("<body><center><b><font size = '+3'>Twerk Prince Pets Store</font></b></center><br>")
+    print("<form action = '/cgi-bin/pets/list_people' method = 'post'>")
+    print("Search by last name:")
+    print("<input type = 'text' name = 'LastName'>")
+    print("<br>")
+    print("<input type = 'Submit' value = 'submit'>")
+    print("</form>")
+    print("<br>")
+    number = 0
+    if ("LastName" in form):
+        search = form["LastName"].value
+    else:
+        search = ""
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM list_people;")
+    allpeople = cursor.fetchall()
+    cursor.close()
+    results = []
+    if (search != ""):
+        for line in allpeople:
+            if (line[1] == search):
+                results.append(line)
+                number += 1
+        print("Searching by last name: " + "'" + search + "'")
+        print("<br>")
+        print(str(number) + " rows found")
+        print("<br>")
+    else:
+        for line in allpeople:
+            number += 1
+        print(str(number) + " rows found")
+        print("<br>")
+    print("<table style = 'width:15%' cellpadding = '10' border = '1'>")
+    print("<col width = '50'>")
+    print("<col width = '50'>")
+    print("<col width = '50'>")
+    print("<col width = '50'>")
+    print("<col width = '50'>")
+    print("<tr>")
+    print("<th>ID</th>")
+    print("<th>Last Name</th>")
+    print("<th>First Name</th>")
+    print("<th>Sex</th>")
+    print("<th>Favorite Animal</th>")
+    print("</tr>")
+    if (search != ""):
+        for line in results:
+            print("<tr>")
+            print("<td>{}</td>".format(line[0]))
+            print("<td>{}</td>".format(line[1]))
+            print("<td>{}</td>".format(line[2]))
+            print("<td>{}</td>".format(line[3]))
+            print("<td>{}</td>".format(line[4]))
+            print("</tr>")
+    else:
+        for line in allpeople:
+            print("<tr>")
+            print("<td>{}</td>".format(line[0]))
+            print("<td>{}</td>".format(line[1]))
+            print("<td>{}</td>".format(line[2]))
+            print("<td>{}</td>".format(line[3]))
+            print("<td>{}</td>".format(line[4]))
+            print("</tr>")
+    print("</table>")
+
+
+def update_inventory():
+    print("Content-type: text/html")
+    print("Status: 200 OK")
+    print()
+    amount = int(form.getvalue("Amount"))
+    species = form.getvalue("Species")
+    oldamount = 0
+    newamount = amount
+    if amount and species:
+        cursor1 = conn.cursor()
+        cursor1.execute("SELECT * FROM inventory;")
+        allpets = cursor1.fetchall()
+        cursor1.close()
+        cursor2 = conn.cursor()
+        hasit = "false"
+        for line in allpets:
+            if (line[2] == species):
+                oldamount = line[1]
+                newamount = int(line[1]) + amount
+                cursor2.execute("UPDATE inventory SET Count = %d  WHERE Species = '%s';" % (newamount, species))
+                conn.commit()
+                hasit = "true"
+                break
+        if hasit == "false":
+           cursor2.execute("INSERT INTO inventory (Count, Species) VALUES ('%d', '%s');" % (amount, species))
+           conn.commit()
+        cursor2.close()
+    print("<body><center><b><font size = '+3'>Twerk Prince Pets Store</font></b></center><br>")
+    print("<head><titile>Inventory Updated</title></head>")
+    print("<br>")
+    if (hasit == "true"):
+        print("The store previously had " + str(oldamount) + " of species " + "'" + species + "'. " + "Adding " + str(amount) + " more, for a total of " + str(newamount) +".")
+    else:
+        print("The store has no record of the species " + "'" + str(species) + "'" + " before. Adding a new record...")
+    print("<br>")
+    print("Success!")
+
+def list_inventory():
+    print("Content-type: text/html")
+    print("Status: 200 OK")
+    print()
+    print("<body><center><b><font size = '+3'>Twerk Prince Pets Store</font></b></center><br>")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM inventory;")
+    allpets = cursor.fetchall()
+    cursor.close()
+    print("<table style = 'width:10%' cellpadding = '10' border = '1'>")
+    print("<col width = '50'>")
+    print("<col width = '50'>")
+    print("<tr>")
+    print("<th>ID</th>")
+    print("<th>Count</th>")
+    print("<th>Species</th>")
+    print("</tr>")
+    for line in allpets:
+        print("<tr>")
+        print("<td>{}</td>".format(line[0]))
+        print("<td>{}</td>".format(line[1]))
+        print("<td>{}</td>".format(line[2]))
+        print("</tr>")
+    print("</table>")
+
+def immigration():
+    print("Content-type: text/html")
+    print("Status: 200 OK")
+    print()
+    ID = int(form.getvalue("ID"))
+    firstname = form.getvalue("FirstName")
+    lastname = form.getvalue("LastName")
+    sex = form.getvalue("Sex")
+    favoriteanimal = form.getvalue("FavoriteAnimal")
+    if ID and firstname and lastname:
+        cursor1 = conn.cursor()
+        cursor1.execute("INSERT INTO list_people (ID, Last_Name, First_Name, Sex, Favorite_Animal) VALUES (%d, '%s', '%s', '%s', '%s');" % (ID, lastname, firstname, sex, favoriteanimal))
+        conn.commit()
+        cursor1.close()
+    print("<body><center><b><font size = '+3'>Twerk Prince Pets Store</font></b></center><br>")
+    print("New Immigrant Registration Has Been Approved!")
+
+def emigration():
+    print("Content-type: text/html")
+    print("Status: 200 OK")
+    print()
+    ID = int(form.getvalue("ID"))
+    if ID:
+        cursor2 = conn.cursor()
+        cursor2.execute("DELETE FROM list_pets WHERE Owner_ID = %d;" % (ID))
+        conn.commit()
+        cursor2.close()
+        cursor3 = conn.cursor()
+        cursor3.execute("DELETE FROM pets_owners WHERE Owner_ID = %d;" % (ID))
+        cursor1 = conn.cursor()
+        cursor1.execute("DELETE FROM list_people WHERE ID = %d;" % (ID))
+        conn.commit()
+        cursor1.close()
+    print("<body><center><b><font size = '+3'>Twerk Prince Pets Store</font></b></center><br>")
+    print("New Emigration Application Has Been Processed!")
+
+def get_pet():
+    print("Content-type: text/html")
+    print("Status: 200 OK")
+    print()
+    print("<body><center><b><font size = '+3'>Twerk Prince Pets Store</font></b></center><br>")
+    print("<form action = '/cgi-bin/pets/order_pet' method = 'post'>")
+    print("To automatically buy your favorite pet, enter ID and pet name only")
+    print("<p>")
+    print("Enter your ID: <br>")
+    print("<input type = 'number' name = 'ID'><br>")
+    print("Enter your First Name: <br>")
+    print("<input type = 'text' name = 'FirstName'>")
+    print("<br>")
+    print("Enter your Last Name: <br>")
+    print("<input type = 'text' name = 'LastName'>")
+    print("<br>")
+    print("Enter your preference of Species: <br>")
+    print("<input type = 'text' name = 'Species'><br>")
+    print("Give your new pet a name: <br>")
+    print("<input type = 'text' name = 'Name'><br>")
+    print("<input type = 'Submit' value = 'submit'>")
+    print("</form>")
+    print("Forget your ID? Click <a href = '/cgi-bin/pets/list_people'> Here</a>")
+    print("<br>")
+    hasit = "none"
+    flag = "not print"
+    if "FirstName" in form and "LastName" in form and "ID" in form and "Species" in form and "Name" in form:
+        firstname = form["FirstName"].value
+        lastname = form["LastName"].value
+        ID = int(form["ID"].value)
+        pet = form["Species"].value
+        name = form["Name"].value
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM inventory")
+        allpets = cursor.fetchall()
+        for line in allpets:
+            if line[2] == pet:
+                hasit = "true"
+                inventory = int(line[1])
+                if (inventory == 0):
+                    print("Sold Out!")
+                    return
+        if (hasit != "true"):
+            hasit = "false"
+        if (hasit == "false"):
+            print("Not Available Now!")
+            return
+        cursor1 = conn.cursor()
+        cursor1.execute("UPDATE inventory SET Count = %d WHERE Species = '%s';" % (inventory-1, pet))
+        conn.commit()
+        cursor1.close()
+        cursor2 = conn.cursor()
+        cursor2.execute("INSERT INTO list_pets (Species, Name, Owner_ID) VALUES ('%s', '%s', %d);" % (pet, name, ID))
+        conn.commit()
+        cursor2.close()
+        cursor3 = conn.cursor()
+        cursor3.execute("INSERT INTO pets_owners (Species, Animal_Name, Last_Name, First_Name, Owner_ID) VALUES ('%s', '%s', '%s', '%s', %d);" % (pet, name, lastname, firstname, ID))
+        conn.commit()
+        flag = "print"
+        cursor3.close()
+    if flag == "print":
+        print("A New Owner-Pet Pair has been added to our database")
+    if "ID" in form and "Name" in form:
+        favorite = ""
+        lastname = ""
+        firstname = ""
+        ID = int(form["ID"].value)
+        name = form["Name"].value
+        cursor1 = conn.cursor()
+        cursor1.execute("SELECT * FROM list_people")
+        people = cursor1.fetchall()
+        for person in people:
+            if int(person[0]) == ID:
+                favorite = person[4]
+                firstname = person[2]
+                lastname = person[1]
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM inventory")
+        allpets = cursor.fetchall()
+        for line in allpets:
+            if line[2] == favorite:
+                hasit = "true"
+                inventory = int(line[1])
+                if (inventory == 0):
+                    print("Sold Out!")
+                    return
+        if (hasit != "true"):
+            hasit = "false"
+        if (hasit == "false"):
+            print("Not Available Now!")
+            return
+        cursor1 = conn.cursor()
+        cursor1.execute("UPDATE inventory SET Count = %d WHERE Species = '%s';" % (inventory-1, favorite))
+        conn.commit()
+        cursor1.close()
+        cursor2 = conn.cursor()
+        cursor2.execute("INSERT INTO list_pets (Species, Name, Owner_ID) VALUES ('%s', '%s', %d);" % (favorite, name, ID))
+        conn.commit()
+        cursor2.close()
+        cursor3 = conn.cursor()
+        cursor3.execute("INSERT INTO pets_owners (Species, Animal_Name, Last_Name, First_Name, Owner_ID) VALUES ('%s', '%s', '%s', '%s', %d);" % (favorite, name, lastname, firstname, ID))
+        conn.commit()
+        flag = "print"
+        cursor3.close()
+    if flag == "print":
+        print("A New Owner-Pet Pair has been added to our database")
+
+if "PATH_INFO" in os.environ:
+    pathinfo = os.environ["PATH_INFO"]
+else:
+    pathinfo = "/"
+
+if pathinfo == "/":
+    main_page()
+elif pathinfo == "/list_pets" or pathinfo == "/list_pets/":
+    list_pets()
+elif pathinfo == "/list_people" or pathinfo == "/list_people/":
+    list_people()
+elif pathinfo == "/list_inventory" or pathinfo == "/list_inventory":
+    list_inventory()
+elif pathinfo == "/update_inventory" or pathinfo == "/update_inventory":
+    update_inventory()
+elif pathinfo == "/immigration" or pathinfo == "/immigration/":
+    immigration()
+elif pathinfo == "/emigration" or pathinfo == "/emigration/":
+    emigration()
+elif pathinfo == "/order_pet" or pathinfo == "/order_pet/":
+    get_pet()
+else:
+    print("Status: 404 Not Found")
+    print()
+    print("The CGI path '{}', underneath the 'pathinfo' tool, was not a valid URL.".format(pathinfo))
